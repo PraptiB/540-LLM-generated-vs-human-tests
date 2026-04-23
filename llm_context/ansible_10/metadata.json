@@ -2,7 +2,7 @@
   "project": "ansible",
   "bug_id": "10",
   "slug": "ansible_10",
-  "status_final": "keep",
+  "status_final": "maybe",
   "recommended_status": "maybe",
   "buggy_checkout_path": "C:\\COSC540\\github_mining_starter\\workspace\\checkouts\\ansible_10\\buggy",
   "fixed_checkout_path": "C:\\COSC540\\github_mining_starter\\workspace\\checkouts\\ansible_10\\fixed",

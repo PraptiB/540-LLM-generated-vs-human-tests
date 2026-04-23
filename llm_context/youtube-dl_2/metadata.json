@@ -2,7 +2,7 @@
   "project": "youtube-dl",
   "bug_id": "2",
   "slug": "youtube-dl_2",
-  "status_final": "keep",
+  "status_final": "maybe",
   "recommended_status": "maybe",
   "buggy_checkout_path": "C:\\COSC540\\github_mining_starter\\workspace\\checkouts\\youtube-dl_2\\buggy",
   "fixed_checkout_path": "C:\\COSC540\\github_mining_starter\\workspace\\checkouts\\youtube-dl_2\\fixed",
