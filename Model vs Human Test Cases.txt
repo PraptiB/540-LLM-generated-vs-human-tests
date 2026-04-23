@@ -174,35 +174,36 @@ def test_parse_dfxp_time_expr():
 Test Case from the Model:
 
 
-class TestUtils:
-    def test_match_str_boolean_unary_filter(self):
-        # The bug in the original version of `_match_one` causes unary operators
-        # to treat boolean `False` values incorrectly.
-        #
-        # Buggy behavior:
-        # - Unary `''` (presence check): `lambda v: v is not None`.
-        #   For `v=False`, `False is not None` evaluates to `True`.
-        #   This means `'my_bool'` would match `{'my_bool': False}`, which is incorrect.
-        # - Unary `'!'` (absence check): `lambda v: v is None`.
-        #   For `v=False`, `False is None` evaluates to `False`.
-        #   This means `'!my_bool'` would NOT match `{'my_bool': False}`, which is incorrect.
+class TestUtils(unittest.TestCase):
+    # Test cases for parse_dfxp_time_expr, which is the function provided in the prompt.
+    # The bug is assumed to be an oversight in the regex that fails to parse
+    # valid DFXP time expressions that start with a decimal point.
+    def test_parse_dfxp_time_expr_leading_decimal_point(self):
+        # In the buggy version, the regex `\d+(?:\.\d+)?` does not match strings
+        # like '.5s' because it requires at least one digit before the decimal point.
+        # However, '.5s' (meaning 0.5 seconds) is a commonly accepted format for floats
+        # and could be a valid DFXP time expression.
+        # This test expects 0.5, but the buggy version will return None, causing the test to fail.
+        self.assertEqual(parse_dfxp_time_expr('.5s'), 0.5)
 
+    def test_parse_dfxp_time_expr_leading_decimal_point_no_s(self):
+        # Similar to the above, testing without the 's' suffix.
+        self.assertEqual(parse_dfxp_time_expr('.75'), 0.75)
 
-        # This assertion should fail in the buggy version.
-        # It expects `my_bool` (which is False) to NOT pass the presence filter.
-        assert not match_str('my_bool', {'my_bool': False})
+    # Add other valid cases to ensure general functionality is covered
+    def test_parse_dfxp_time_expr_basic(self):
+        self.assertEqual(parse_dfxp_time_expr('10'), 10.0)
+        self.assertEqual(parse_dfxp_time_expr('10s'), 10.0)
+        self.assertEqual(parse_dfxp_time_expr('10.5'), 10.5)
+        self.assertEqual(parse_dfxp_time_expr('10.5s'), 10.5)
+        self.assertEqual(parse_dfxp_time_expr('0'), 0.0)
+        self.assertEqual(parse_dfxp_time_expr('0.0s'), 0.0)
 
-
-        # This assertion should fail in the buggy version.
-        # It expects `!my_bool` (which is False) to pass the absence filter.
-        assert match_str('!my_bool', {'my_bool': False})
-
-
-        # These cases are for completeness and pass in both buggy and fixed versions.
-        # Checking for presence of a True boolean field
-        assert match_str('my_bool', {'my_bool': True})
-
-
-        # Checking for absence of a True boolean field
-        assert not match_str('!my_bool', {'my_bool': True})
-```
+    # Add invalid cases to ensure they return None
+    def test_parse_dfxp_time_expr_invalid(self):
+        self.assertIsNone(parse_dfxp_time_expr(''))
+        self.assertIsNone(parse_dfxp_time_expr(None))
+        self.assertIsNone(parse_dfxp_time_expr('abc'))
+        self.assertIsNone(parse_dfxp_time_expr('10m')) # Wrong unit
+        self.assertIsNone(parse_dfxp_time_expr('10.s')) # Missing digits after dot
+        self.assertIsNone(parse_dfxp_time_expr('10..5s')) # Malformed float
