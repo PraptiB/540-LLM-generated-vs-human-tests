@@ -351,89 +351,41 @@ def test_parse_distribution_file_debian_ubuntu():
 
 Test Case from the Model:
 
-# A minimal mock for InfoExtractor to test _extract_dash_formats
-class MockInfoExtractor(InfoExtractor):
-    def __init__(self):
-        # InfoExtractor's __init__ expects a 'downloader' object (usually an instance of YoutubeDL).
-        # For this test, a minimal mock is sufficient to satisfy the constructor.
-        class MockDownloader:
-            params = {}  # _extract_dash_formats might access self.ydl.params indirectly
-        self.ydl = MockDownloader()
-        super(MockInfoExtractor, self).__init__(self.ydl)
-        self.warnings = []
+# Assuming the function is part of a class, let's create a dummy class or pass None for self
+class DummySelf:
+    pass
 
-    def report_warning(self, message):
-        self.warnings.append(message)
+def parse_distribution_file_Debian(self, name, data, path, collected_facts):
+    debian_facts = {}
 
+    if 'Debian' in data or 'Raspbian' in data:
+        debian_facts['distribution'] = 'Debian'
 
-class TestInfoExtractor(unittest.TestCase):
-    def test_dash_formats_duplicate_representation_id_regression(self):
-        """
-        Tests that _extract_dash_formats correctly handles MPD manifests
-        containing multiple <Representation> elements with the same 'id'.
-        The bug caused only the last representation with a given ID to be kept,
-        overwriting properties of earlier ones. This test asserts that all
-        representations, even with duplicate IDs, are processed as distinct formats.
-        """
-        ie = MockInfoExtractor()
-        mpd_url = 'http://example.com/test.mpd'
-        video_id = 'test_video'
+    elif 'Ubuntu' in data:
+        debian_facts['distribution'] = 'Ubuntu'
 
-        # Craft a minimal MPD XML with two representations that have the
-        # same 'id' but distinct 'bandwidth' and 'BaseURL' to highlight
-        # the overwriting bug.
-        mpd_xml = """<?xml version="1.0" encoding="UTF-8"?>
-<MPD xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-     xmlns="urn:mpeg:dash:schema:mpd:2011"
-     xsi:schemaLocation="urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd"
-     minBufferTime="PT1.5S" type="static" mediaPresentationDuration="PT0H0M30.0S">
-  <Period>
-    <AdaptationSet id="0" mimeType="video/mp4" codecs="avc1.4d401e">
-      <Representation id="common_video_id" bandwidth="1000">
-        <BaseURL>http://example.com/video1/</BaseURL>
-        <SegmentList duration="2">
-          <SegmentURL media="segment_1_1.mp4"/>
-        </SegmentList>
-      </Representation>
-      <Representation id="common_video_id" bandwidth="2000">
-        <BaseURL>http://example.com/video2/</BaseURL>
-        <SegmentList duration="2">
-          <SegmentURL media="segment_2_1.mp4"/>
-        </SegmentList>
-      </Representation>
-    </AdaptationSet>
-  </Period>
-</MPD>
-"""
-        mpd_obj = ET.fromstring(mpd_xml)
+    elif 'SteamOS' in data:
+        debian_facts['distribution'] = 'SteamOS'
 
-        # Call the target method containing the bug.
-        formats = ie._extract_dash_formats(mpd_obj, mpd_url, video_id)
+    return debian_facts
 
-        # In the buggy version (before the fix), the `next()` call would find the first
-        # representation with 'common_video_id', and then `existing_format.update(f)`
-        # would overwrite its properties with those of the second representation.
-        # This would result in only ONE format entry in the 'formats' list.
-        # The fixed version ensures that both representations are added as distinct formats.
-        self.assertEqual(len(formats), 2,
-                         'Expected two distinct formats for representations with the same ID, '
-                         'but found %d. This indicates the bug where formats with duplicate IDs are overwritten.' % len(formats))
-
-        # Verify that the properties of the first representation are correctly preserved.
-        # In the buggy version, formats[0]['bandwidth'] would be 2000.
-        self.assertEqual(formats[0]['format_id'], 'common_video_id')
-        self.assertEqual(formats[0]['bandwidth'], 1000,
-                         'First format bandwidth should retain its original value (1000) and not be overwritten by the second representation.')
-        self.assertIn('http://example.com/video1/segment_1_1.mp4', [f.values()[0] for f in formats[0]['fragments']],
-                      'First format should contain fragments from its original BaseURL.')
-
-        # Verify that the properties of the second representation are correctly added as a new format.
-        self.assertEqual(formats[1]['format_id'], 'common_video_id')
-        self.assertEqual(formats[1]['bandwidth'], 2000,
-                         'Second format should be added with its unique bandwidth (2000).')
-        self.assertIn('http://example.com/video2/segment_2_1.mp4', [f.values()[0] for f in formats[1]['fragments']],
-                      'Second format should contain fragments from its distinct BaseURL.')
-```
+@pytest.mark.parametrize(
+    "data_input, expected_output",
+    [
+        ("This is some Debian distribution data.", {'distribution': 'Debian'}),
+        ("This is some Raspbian distribution data.", {'distribution': 'Debian'}),
+        ("This is some Ubuntu distribution data.", {'distribution': 'Ubuntu'}),
+        ("This is some SteamOS distribution data.", {'distribution': 'SteamOS'}),
+        ("Generic Linux distribution info.", {}),
+        ("Debian and Ubuntu in the same string.", {'distribution': 'Debian'}), # Debian should be matched first
+        ("", {}), # Empty data string
+    ]
+)
+def test_parse_distribution_file_Debian(data_input, expected_output):
+    # 'self', 'name', 'path', 'collected_facts' are not used in the function's logic
+    # so we can pass dummy values for them.
+    result = parse_distribution_file_Debian(DummySelf(), "test_name", data_input, "test_path", {})
+    assert result == expected_output
 
 A Function from Ansible 4:
 
