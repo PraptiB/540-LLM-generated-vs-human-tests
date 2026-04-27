@@ -15,9 +15,6 @@ import os
 
 os.makedirs("output_charts", exist_ok=True)
 
-# ============================================================
-# COLORS
-# ============================================================
 HUMAN = "#6366f1"
 LLM = "#f97316"
 GREEN = "#22c55e"
@@ -40,9 +37,7 @@ plt.rcParams.update({
     'font.size': 10,
 })
 
-# ============================================================
-# DATA - BUGSINPY (21 comparisons)
-# ============================================================
+
 bugsinpy = [
     {"id":"ansible_1",     "h_a":3, "l_a":1,  "h_loc":4,  "l_loc":14, "h_ec":3,  "l_ec":1,  "h_fd":0,"l_fd":1,"h_doc":0,"l_doc":1,"h_pat":"simple",      "l_pat":"advanced"},
     {"id":"ansible_2",     "h_a":5, "l_a":6,  "h_loc":10, "l_loc":30, "h_ec":5,  "l_ec":4,  "h_fd":0,"l_fd":1,"h_doc":0,"l_doc":1,"h_pat":"simple",      "l_pat":"advanced"},
@@ -79,9 +74,7 @@ l_fd = [b["l_fd"] for b in bugsinpy]
 
 n = len(bugsinpy)
 
-# ============================================================
-# CHART 1: Assertions per Bug (Bar Chart)
-# ============================================================
+
 fig, ax = plt.subplots(figsize=(14, 5))
 x = np.arange(n)
 w = 0.35
@@ -99,9 +92,7 @@ plt.savefig("output_charts/01_assertions_per_bug.png", dpi=200)
 plt.close()
 print("✓ 01_assertions_per_bug.png")
 
-# ============================================================
-# CHART 2: Lines of Code per Bug (Bar Chart)
-# ============================================================
+
 fig, ax = plt.subplots(figsize=(14, 5))
 ax.bar(x - w/2, h_loc, w, label='Human', color=HUMAN, edgecolor='none', zorder=3)
 ax.bar(x + w/2, l_loc, w, label='LLM', color=LLM, edgecolor='none', zorder=3)
@@ -117,9 +108,7 @@ plt.savefig("output_charts/02_loc_per_bug.png", dpi=200)
 plt.close()
 print("✓ 02_loc_per_bug.png")
 
-# ============================================================
-# CHART 3: Edge Cases per Bug (Bar Chart)
-# ============================================================
+
 fig, ax = plt.subplots(figsize=(14, 5))
 ax.bar(x - w/2, h_ec, w, label='Human', color=HUMAN, edgecolor='none', zorder=3)
 ax.bar(x + w/2, l_ec, w, label='LLM', color=LLM, edgecolor='none', zorder=3)
@@ -135,9 +124,7 @@ plt.savefig("output_charts/03_edge_cases_per_bug.png", dpi=200)
 plt.close()
 print("✓ 03_edge_cases_per_bug.png")
 
-# ============================================================
-# CHART 4: Fault Detection (Heatmap-style)
-# ============================================================
+
 fig, ax = plt.subplots(figsize=(14, 3))
 for i in range(n):
     ax.add_patch(plt.Rectangle((i-0.4, 0.55), 0.38, 0.35,
@@ -165,9 +152,7 @@ plt.savefig("output_charts/04_fault_detection.png", dpi=200)
 plt.close()
 print("✓ 04_fault_detection.png")
 
-# ============================================================
-# CHART 5: Fault Detection Pie Charts
-# ============================================================
+
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
 h_det = sum(h_fd)
 l_det = sum(l_fd)
@@ -187,9 +172,7 @@ plt.savefig("output_charts/05_fault_detection_pies.png", dpi=200)
 plt.close()
 print("✓ 05_fault_detection_pies.png")
 
-# ============================================================
-# CHART 6: Summary Comparison Bar
-# ============================================================
+
 fig, ax = plt.subplots(figsize=(10, 5))
 metrics = ['Avg\nAssertions', 'Avg\nLOC', 'Avg Edge\nCases', 'Fault\nDetection %', 'Docstring\n%']
 h_vals = [
@@ -225,9 +208,7 @@ plt.savefig("output_charts/06_summary_comparison.png", dpi=200)
 plt.close()
 print("✓ 06_summary_comparison.png")
 
-# ============================================================
-# CHART 7: Radar Chart
-# ============================================================
+
 fig, ax = plt.subplots(figsize=(7, 7), subplot_kw=dict(polar=True))
 categories = ['Assertions', 'LOC', 'Fault Detection', 'Edge Cases', 'Documentation']
 N = len(categories)
@@ -258,9 +239,7 @@ plt.savefig("output_charts/07_radar_chart.png", dpi=200)
 plt.close()
 print("✓ 07_radar_chart.png")
 
-# ============================================================
-# CHART 8: Testing Pattern Distribution
-# ============================================================
+
 h_pats = {}
 l_pats = {}
 for b in bugsinpy:
@@ -292,9 +271,7 @@ plt.savefig("output_charts/08_testing_patterns.png", dpi=200)
 plt.close()
 print("✓ 08_testing_patterns.png")
 
-# ============================================================
-# STATISTICAL TESTS
-# ============================================================
+
 print("\n" + "="*60)
 print("STATISTICAL RESULTS")
 print("="*60)
@@ -330,9 +307,6 @@ print(f"  Assertions: Human={np.mean(h_a):.1f}, LLM={np.mean(l_a):.1f}")
 print(f"  LOC:        Human={np.mean(h_loc):.1f}, LLM={np.mean(l_loc):.1f}")
 print(f"  Edge Cases: Human={np.mean(h_ec):.1f}, LLM={np.mean(l_ec):.1f}")
 
-# ============================================================
-# CHART 9: Statistical Results Table
-# ============================================================
 fig, ax = plt.subplots(figsize=(12, 4))
 ax.axis('off')
 
@@ -366,9 +340,6 @@ plt.savefig("output_charts/09_statistical_table.png", dpi=200)
 plt.close()
 print("✓ 09_statistical_table.png")
 
-# ============================================================
-# CHART 10: Metrics Definition Table
-# ============================================================
 fig, ax = plt.subplots(figsize=(12, 5))
 ax.axis('off')
 
@@ -409,9 +380,7 @@ plt.savefig("output_charts/10_metrics_table.png", dpi=200)
 plt.close()
 print("✓ 10_metrics_table.png")
 
-# ============================================================
-# DONE
-# ============================================================
+
 print("\n" + "="*60)
 print(f"All charts saved to ./output_charts/")
 print(f"Total: 10 PNG files ready for your presentation")
