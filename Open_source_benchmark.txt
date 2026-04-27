@@ -1,0 +1,617 @@
+﻿A function from packaging_canonicalize_name:
+
+
+def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
+    if validate and not _validate_regex.fullmatch(name):
+        raise InvalidName(f"name is invalid: {name!r}")
+
+
+    value = name.lower().replace("_", "-").replace(".", "-")
+
+
+    while "--" in value:
+        value = value.replace("--", "-")
+
+
+    return cast("NormalizedName", value)
+
+
+A test case from a human:
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("foo", "foo"),
+        ("Foo", "foo"),
+        ("fOo", "foo"),
+        ("foo.bar", "foo-bar"),
+        ("Foo.Bar", "foo-bar"),
+        ("Foo.....Bar", "foo-bar"),
+        ("foo_bar", "foo-bar"),
+        ("foo___bar", "foo-bar"),
+        ("foo-bar", "foo-bar"),
+        ("foo----bar", "foo-bar"),
+    ],
+)
+def test_canonicalize_name(name: str, expected: str) -> None:
+    assert canonicalize_name(name) == expected
+
+
+A test case from the model:
+
+
+def test_canonicalize_name_with_mixed_delimiters_and_case():
+    """
+    Tests that the canonicalize_name function correctly handles:
+    - Mixed case input (converts to lowercase).
+    - Underscores (replaces with hyphens).
+    - Dots (replaces with hyphens).
+    - Multiple adjacent delimiters (underscores, dots, or existing hyphens)
+      that collapse into a single hyphen.
+    """
+    input_name = "MY_Name.With..Multiple__DELIMITERS---Test-CASE"
+    expected_output = "my-name-with-multiple-delimiters-test-case"
+    assert canonicalize_name(input_name) == expected_output
+
+
+A function from packaging_canonicalize_name:
+
+
+def canonicalize_version(
+    version: Version | str, *, strip_trailing_zero: bool = True
+) -> str:
+
+
+    if isinstance(version, str):
+        try:
+            version = Version(version)
+        except InvalidVersion:
+            return str(version)
+    return str(_TrimmedRelease(version) if strip_trailing_zero else version)
+
+
+
+
+
+
+A test case from a human:
+
+
+ def test_canonicalize_version(version, expected):
+    assert canonicalize_version(version) == expected
+
+
+A test case from the model:
+
+
+# --- Minimal implementations for dependencies to make the function runnable ---
+# These simulate the expected behavior of Version objects and the _TrimmedRelease helper.
+
+
+class InvalidVersion(ValueError):
+    """Custom exception for invalid versions, similar to packaging.version.InvalidVersion."""
+    pass
+
+
+class Version:
+    """A simplified Version class for testing purposes."""
+    def __init__(self, version_str: str):
+        if not isinstance(version_str, str):
+            raise TypeError("Version string must be a string.")
+        self._original_str = version_str
+        try:
+            # Simulate parsing into numeric parts, raising InvalidVersion for non-numeric components
+            self.release = tuple(int(p) for p in version_str.split('.'))
+        except ValueError as e:
+            raise InvalidVersion(f"Invalid version string: '{version_str}'") from e
+
+
+    def __str__(self) -> str:
+        return self._original_str
+
+
+    def __repr__(self) -> str:
+        return f"Version('{self._original_str}')"
+
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, Version):
+            return self._original_str == other._original_str
+        return NotImplemented
+
+
+class _TrimmedRelease:
+    """A simplified helper to simulate stripping trailing .0 components."""
+    def __init__(self, version_obj: Version):
+        release_parts = list(version_obj.release)
+        # Strip all trailing .0 components, but ensure at least one component remains (e.g., '0' for '0.0.0')
+        while len(release_parts) > 1 and release_parts[-1] == 0:
+            release_parts.pop()
+        self._trimmed_str = ".".join(str(p) for p in release_parts)
+
+
+    def __str__(self) -> str:
+        return self._trimmed_str
+
+
+# --- The function under test (copied for self-containment) ---
+def canonicalize_version(
+    version: Version | str, *, strip_trailing_zero: bool = True
+) -> str:
+    if isinstance(version, str):
+        try:
+            version = Version(version)
+        except InvalidVersion:
+            return str(version)
+    return str(_TrimmedRelease(version) if strip_trailing_zero else version)
+
+
+# --- Pytest Unit Test ---
+
+
+@pytest.mark.parametrize(
+    "input_version, strip_trailing_zero, expected_output",
+    [
+        # Test cases for stripping trailing zeros (strip_trailing_zero=True)
+        ("1.0.0", True, "1"),      # Strips all trailing .0
+        ("1.2.0", True, "1.2"),    # Strips the last .0
+        ("1.0", True, "1"),        # Strips the only trailing .0
+        ("1", True, "1"),          # No trailing .0 to strip
+        ("0.0.0", True, "0"),      # Handles all zeros
+        ("1.2.3", True, "1.2.3"),  # No trailing .0 to strip
+
+
+        # Test cases for NOT stripping trailing zeros (strip_trailing_zero=False)
+        ("1.0.0", False, "1.0.0"), # Retains all components
+        ("1.2.0", False, "1.2.0"), # Retains all components
+        ("1.0", False, "1.0"),     # Retains all components
+        ("1", False, "1"),         # No change
+        ("1.2.3", False, "1.2.3"), # No change
+
+
+        # Test cases for invalid version strings
+        ("invalid-version", True, "invalid-version"),    # Returns original string for invalid input
+        ("1.2.x", False, "1.2.x"),                       # Invalid component should be caught by Version constructor
+        ("1.2.x", True, "1.2.x"),
+    ],
+    ids=[f"v='{v}'_strip={s}" for v, s, _ in [
+        ("1.0.0", True, "1"), ("1.2.0", True, "1.2"), ("1.0", True, "1"), ("1", True, "1"),
+        ("0.0.0", True, "0"), ("1.2.3", True, "1.2.3"), ("1.0.0", False, "1.0.0"),
+        ("1.2.0", False, "1.2.0"), ("1.0", False, "1.0"), ("1", False, "1"),
+        ("1.2.3", False, "1.2.3"), ("invalid-version", True, "invalid-version"),
+        ("1.2.x", False, "1.2.x"), ("1.2.x", True, "1.2.x"),
+    ]]
+)
+def test_canonicalize_version_behavior(input_version, strip_trailing_zero, expected_output):
+    """
+    Tests the canonicalize_version function for various inputs,
+    including valid versions with/without trailing zeros, and invalid versions.
+    """
+    result = canonicalize_version(input_version, strip_trailing_zero=strip_trailing_zero)
+    assert result == expected_output
+
+
+A function from packaging_canonicalize_name:
+
+
+def is_normalized_name(name: str) -> bool:
+  
+    return _normalized_regex.fullmatch(name) is not None
+
+
+A test case from a human:
+
+def test_is_normalized_name(name, expected):
+    assert is_normalized_name(expected)
+    if name != expected:
+        assert not is_normalized_name(name)
+
+
+A test case from the model:
+
+
+def is_normalized_name(name: str) -> bool:
+    return _normalized_regex.fullmatch(name) is not None
+
+
+@pytest.mark.parametrize(
+    "name, expected_result",
+    [
+        # Valid normalized names (according to the assumed _normalized_regex pattern)
+        ("valid_name", True),
+        ("anotherName", True),
+        ("name123", True),
+        ("___", True),
+        ("A_B_C_1", True),
+        ("single", True),
+        ("a", True),
+        ("_", True),
+
+
+        # Invalid normalized names
+        ("", False),  # Empty string
+        ("123invalid", False),  # Starts with a digit
+        ("-invalid", False),  # Starts with a hyphen
+        ("invalid-name", False),  # Contains a hyphen (not allowed by assumed regex)
+        ("invalid name", False),  # Contains a space
+        ("invalid!", False),  # Contains a special character
+        ("name.sub", False),  # Contains a dot
+        (" space_at_end ", False), # Leading/trailing spaces (fullmatch will fail)
+        (" space_at_start", False),
+        ("two words", False),
+    ],
+    ids=lambda param: f"name='{param}'" if isinstance(param, str) else None
+)
+def test_is_normalized_name_patterns(name: str, expected_result: bool):
+    """
+    Test the `is_normalized_name` function with various strings,
+    verifying its behavior against a common "normalized name" pattern.
+    """
+    assert is_normalized_name(name) == expected_result
+
+
+A function from packaging_canonicalize_version:
+
+
+def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
+    if filename.endswith(".tar.gz"):
+        file_stem = filename[: -len(".tar.gz")]
+    elif filename.endswith(".zip"):
+        file_stem = filename[: -len(".zip")]
+    else:
+        raise InvalidSdistFilename(
+            f"Invalid sdist filename (extension must be '.tar.gz' or '.zip'):"
+            f" {filename!r}"
+        )
+
+
+    name_part, sep, version_part = file_stem.rpartition("-")
+    if not sep:
+        raise InvalidSdistFilename(f"Invalid sdist filename: {filename!r}")
+
+
+    name = canonicalize_name(name_part)
+
+
+    try:
+        version = Version(version_part)
+    except InvalidVersion as e:
+        raise InvalidSdistFilename(
+            f"Invalid sdist filename (invalid version): {filename!r}"
+        ) from e
+
+
+    return (name, version)
+
+
+A test case from a human:
+
+
+@pytest.mark.parametrize(
+    ("filename", "name", "version"),
+    [
+        ("foo-1.0.tar.gz", "foo", Version("1.0")),
+        ("foo-1.0.zip", "foo", Version("1.0")),
+    ],
+)
+def test_parse_sdist_filename(filename: str, name: str, version: Version) -> None:
+    assert parse_sdist_filename(filename) == (name, version)
+
+
+A test case from the model:
+
+
+def test_parse_sdist_filename_valid_tar_gz():
+    """
+    Test parsing a valid sdist filename with a .tar.gz extension,
+    including name canonicalization.
+    """
+    filename = "My_Package-1.2.3.tar.gz"
+    expected_name = canonicalize_name("My_Package")  # Should be "my-package"
+    expected_version = Version("1.2.3")
+
+
+    name, version = parse_sdist_filename(filename)
+
+
+    assert name == expected_name
+    assert version == expected_version
+
+
+A function from slugify:
+
+
+def smart_truncate(
+    string: str,
+    max_length: int = 0,
+    word_boundary: bool = False,
+    separator: str = " ",
+    save_order: bool = False,
+) -> str:
+
+
+    string = string.strip(separator)
+
+
+    if not max_length:
+        return string
+
+
+    if len(string) < max_length:
+        return string
+
+
+    if not word_boundary:
+        return string[:max_length].strip(separator)
+
+
+    if separator not in string:
+        return string[:max_length]
+
+
+    truncated = ''
+    for word in string.split(separator):
+        if word:
+            next_len = len(truncated) + len(word)
+            if next_len < max_length:
+                truncated += '{}{}'.format(word, separator)
+            elif next_len == max_length:
+                truncated += '{}'.format(word)
+                break
+            else:
+                if save_order:
+                    break
+    if not truncated:
+        truncated = string[:max_length]
+    return truncated.strip(separator)
+
+
+A test case from a human:
+
+def test_smart_truncate_no_max_length():
+    txt = '1,000 reasons you are #1'
+    assert smart_truncate(txt) == txt 
+
+
+A test case from the model:
+
+def test_smart_truncate_word_boundary_and_save_order_interaction():
+    """
+    Tests the `save_order` parameter's behavior when `word_boundary` is true
+    and a long word would cause the total length to exceed `max_length`.
+    - If `save_order=True`, truncation should stop before adding the exceeding word.
+    - If `save_order=False`, the exceeding word should be skipped, and subsequent
+      words should be considered if they fit within `max_length`.
+    """
+    text = "alpha bravo charlie_very_long delta"
+    max_len = 16
+    separator = " "
+
+
+    # Scenario:
+    # 1. "alpha" (5 chars) + " " = "alpha " (6 chars)
+    # 2. "bravo" (5 chars) + " " = "alpha bravo " (12 chars)
+    # 3. "charlie_very_long" (17 chars)
+    #    next_len = 12 + 17 = 29. This exceeds max_len (16).
+
+
+    # With save_order=True: The function should stop at "bravo" because adding
+    # "charlie_very_long" would exceed max_len.
+    expected_true = "alpha bravo"
+    assert smart_truncate(text, max_len, word_boundary=True, separator=separator, save_order=True) == expected_true
+
+
+    # With save_order=False: The function should skip "charlie_very_long" and
+    # continue to the next word ("delta").
+    # "alpha bravo " (12 chars) + "delta" (5 chars) = 17. Still exceeds.
+    # Uh, wait, my mental trace above for save_order=False: "first third" had max_len=12, first=5, third=5, sep=" ".
+    # "first " (6) + "third" (5) = 11. It fit.
+    # In this case: "alpha bravo " (12) + "delta" (5) = 17. It would exceed max_len (16).
+    # So "delta" should also be skipped.
+    # The result should still be "alpha bravo". Let's re-verify my understanding for this case.
+
+
+    # Re-tracing for save_order=False, max_len=16:
+    # 1. 'alpha': truncated = 'alpha ' (len 6)
+    # 2. 'bravo': truncated = 'alpha bravo ' (len 12)
+    # 3. 'charlie_very_long': next_len = 12 + 17 = 29. 29 > 16. save_order=False, so skip 'charlie_very_long'.
+    # 4. 'delta': next_len = 12 + 5 = 17. 17 > 16. save_order=False, so skip 'delta'.
+    # Loop finishes.
+    # `truncated` is 'alpha bravo '.
+    # returns 'alpha bravo'.
+
+
+    # This means for _this specific_ `max_len`, both `save_order=True` and `save_order=False`
+    # would yield the same result. This is not ideal for demonstrating the difference.
+    # I need to adjust `max_len` or `text` such that 'delta' *can* fit if 'charlie_very_long' is skipped.
+
+
+    # Let's adjust `max_len` to 17.
+    # text = "alpha bravo charlie_very_long delta"
+    # max_len = 17
+    # separator = " "
+
+
+    # Save_order=True:
+    # 1. 'alpha': truncated = 'alpha ' (len 6)
+    # 2. 'bravo': truncated = 'alpha bravo ' (len 12)
+    # 3. 'charlie_very_long': next_len = 12 + 17 = 29. 29 > 17. Break.
+    # Returns "alpha bravo"
+
+
+    # Save_order=False:
+    # 1. 'alpha': truncated = 'alpha ' (len 6)
+    # 2. 'bravo': truncated = 'alpha bravo ' (len 12)
+    # 3. 'charlie_very_long': next_len = 12 + 17 = 29. 29 > 17. Skip.
+    # 4. 'delta': next_len = 12 + 5 = 17. 17 == 17.
+    #    truncated = 'alpha bravo delta'. Break.
+    # Returns "alpha bravo delta"
+
+
+    # THIS IS THE SCENARIO!
+
+
+    text_diff = "alpha bravo charlie_very_long delta"
+    max_len_diff = 17 # Adjusted max_length to make 'delta' fit if charlie is skipped
+    separator_diff = " "
+
+
+    # With save_order=True:
+    # "alpha " (6) + "bravo " (6) -> "alpha bravo " (12)
+    # "charlie_very_long" (17) -> 12 + 17 = 29 > 17. Break due to save_order=True.
+    assert smart_truncate(text_diff, max_len_diff, word_boundary=True, separator=separator_diff, save_order=True) == "alpha bravo"
+
+
+    # With save_order=False:
+    # "alpha " (6) + "bravo " (6) -> "alpha bravo " (12)
+    # "charlie_very_long" (17) -> 12 + 17 = 29 > 17. Skip.
+    # "delta" (5) -> 12 + 5 = 17. 17 == 17. Add "delta". Break.
+    assert smart_truncate(text_diff, max_len_diff, word_boundary=True, separator=separator_diff, save_order=False) == "alpha bravo delta"
+
+
+
+
+A function from packaging_canonicalize_name:
+
+
+def parse_wheel_filename(
+    filename: str,
+    *,
+    validate_order: bool = False,
+) -> tuple[NormalizedName, Version, BuildTag, frozenset[Tag]]:
+  
+    if not filename.endswith(".whl"):
+        raise InvalidWheelFilename(
+            f"Invalid wheel filename (extension must be '.whl'): {filename!r}"
+        )
+
+
+    filename = filename[:-4]
+    dashes = filename.count("-")
+    if dashes not in (4, 5):
+        raise InvalidWheelFilename(
+            f"Invalid wheel filename (wrong number of parts): {filename!r}"
+        )
+
+
+    parts = filename.split("-", dashes - 2)
+    name_part = parts[0]
+    # See PEP 427 for the rules on escaping the project name.
+    if "__" in name_part or re.match(r"^[\w\d._]*$", name_part, re.UNICODE) is None:
+        raise InvalidWheelFilename(f"Invalid project name: {filename!r}")
+    name = canonicalize_name(name_part)
+
+
+    try:
+        version = Version(parts[1])
+    except InvalidVersion as e:
+        raise InvalidWheelFilename(
+            f"Invalid wheel filename (invalid version): {filename!r}"
+        ) from e
+
+
+    if dashes == 5:
+        build_part = parts[2]
+        build_match = _build_tag_regex.match(build_part)
+        if build_match is None:
+            raise InvalidWheelFilename(
+                f"Invalid build number: {build_part} in {filename!r}"
+            )
+        build = cast("BuildTag", (int(build_match.group(1)), build_match.group(2)))
+    else:
+        build = ()
+    tag_str = parts[-1]
+    try:
+        tags = parse_tag(tag_str, validate_order=validate_order)
+    except UnsortedTagsError:
+        raise InvalidWheelFilename(
+            f"Invalid wheel filename (compressed tag set components must be in "
+            f"sorted order per PEP 425): {filename!r}"
+        ) from None
+    return (name, version, build, tags)
+
+
+A test case from a human:
+
+
+def test_parse_wheel_filename(
+    filename: str, name: str, version: Version, build: tuple[int, str], tags: set[Tag]
+) -> None:
+    assert parse_wheel_filename(filename) == (name, version, build, frozenset(tags))
+
+
+A test case from the model:
+
+
+def parse_wheel_filename(
+    filename: str,
+    *,
+    validate_order: bool = False,
+) -> tuple[NormalizedName, Version, BuildTag, frozenset[Tag]]:
+  
+    if not filename.endswith(".whl"):
+        raise InvalidWheelFilename(
+            f"Invalid wheel filename (extension must be '.whl'): {filename!r}"
+        )
+
+
+    filename = filename[:-4]
+    dashes = filename.count("-")
+    if dashes not in (4, 5):
+        raise InvalidWheelFilename(
+            f"Invalid wheel filename (wrong number of parts): {filename!r}"
+        )
+
+
+    parts = filename.split("-", dashes - 2)
+    name_part = parts[0]
+    # See PEP 427 for the rules on escaping the project name.
+    if "__" in name_part or re.match(r"^[\w\d._]*$", name_part, re.UNICODE) is None:
+        raise InvalidWheelFilename(f"Invalid project name: {filename!r}")
+    name = canonicalize_name(name_part)
+
+
+    try:
+        version = Version(parts[1])
+    except InvalidVersion as e:
+        raise InvalidWheelFilename(
+            f"Invalid wheel filename (invalid version): {filename!r}"
+        ) from e
+
+
+    if dashes == 5:
+        build_part = parts[2]
+        build_match = _build_tag_regex.match(build_part)
+        if build_match is None:
+            raise InvalidWheelFilename(
+                f"Invalid build number: {build_part} in {filename!r}"
+            )
+        build = cast("BuildTag", (int(build_match.group(1)), build_match.group(2)))
+    else:
+        build = ()
+    tag_str = parts[-1]
+    try:
+        tags = parse_tag(tag_str, validate_order=validate_order)
+    except UnsortedTagsError:
+        raise InvalidWheelFilename(
+            f"Invalid wheel filename (compressed tag set components must be in "
+            f"sorted order per PEP 425): {filename!r}"
+        ) from None
+    return (name, version, build, tags)
+
+
+
+
+def test_parse_wheel_filename_too_few_dashes_before_whl():
+    """
+    Test that parse_wheel_filename raises InvalidWheelFilename when the filename
+    (excluding the .whl extension) has too few dashes (e.g., 3 instead of 4 or 5).
+    """
+    invalid_filename = "mypackage-1.0-py3-any.whl"  # Has 3 dashes
+    with pytest.raises(InvalidWheelFilename) as exc_info:
+        parse_wheel_filename(invalid_filename)
+
+
+    assert "wrong number of parts" in str(exc_info.value)
+    assert invalid_filename[:-4] in str(exc_info.value)
